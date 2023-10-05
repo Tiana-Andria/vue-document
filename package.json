@@ -36,6 +36,9 @@
   "devDependencies": {
     "@vue/cli-plugin-babel": "^5.0.8",
     "@vue/cli-service": "^5.0.8",
+    "node-sass": "^9.0.0",
+    "sass": "^1.68.0",
+    "sass-loader": "^13.3.2",
     "vue": "^3.2.45",
     "vue-file-toolbar-menu": "^2.2.0"
   },
@@ -43,5 +46,17 @@
     "> 1%",
     "last 2 versions",
     "not dead"
-  ]
+  ],
+  "dependencies": {
+    "@tiptap/extension-collaboration": "^2.1.11",
+    "@tiptap/extension-collaboration-cursor": "^2.1.11",
+    "@tiptap/pm": "^2.1.11",
+    "@tiptap/starter-kit": "^2.1.11",
+    "@tiptap/vue-3": "^2.1.11",
+    "vue-document-editor": "^2.3.1",
+    "y-prosemirror": "^1.0.20",
+    "y-webrtc": "^10.2.5",
+    "y-websocket": "^1.5.0",
+    "yjs": "^13.6.8"
+  }
 }

@@ -91,6 +91,12 @@ export default {
     window.addEventListener("click", this.process_current_text_style);
     window.addEventListener("beforeprint", this.before_print);
     window.addEventListener("afterprint", this.after_print);
+
+    const editorElement = this.$refs.content;
+  editorElement.addEventListener("keyup", this.trackCursorPosition);
+  editorElement.addEventListener("selectionchange", this.trackCursorPosition);
+
+
   },
 
   beforeUpdate () {
@@ -114,6 +120,28 @@ export default {
 
 
   methods: {
+    trackCursorPosition() {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const cursorPosition = this.getCursorPosition(range);
+        console.log("Position du curseur :", cursorPosition);
+        this.$emit("cursor-move", cursorPosition);
+      }
+    },
+
+    getCursorPosition(range) {
+      const content = this.$refs.content;
+      const clonedRange = range.cloneRange();
+      clonedRange.selectNodeContents(content);
+
+      // Déplacez la fin du cloneRange au début de la plage de sélection
+      clonedRange.setEnd(range.startContainer, range.startOffset);
+
+      // La longueur du contenu du cloneRange est la position du curseur
+      return clonedRange.toString().length;
+    },
+      
     // Computes a random 5-char UUID
     new_uuid: () => Math.random().toString(36).slice(-5),
 
@@ -442,10 +470,10 @@ export default {
 
     // Get and store empty editor <div> width
     update_editor_width () {
-      this.$refs.editor.classList.add("hide_children");
-      this.editor_width = this.$refs.editor.clientWidth;
+      this.$refs.content.classList.add("hide_children");
+      this.editor_width = this.$refs.content.clientWidth;
       this.update_pages_elts();
-      this.$refs.editor.classList.remove("hide_children");
+      this.$refs.content.classList.remove("hide_children");
     },
     update_css_media_style () {
       this.css_media_style.innerHTML = "@media print { @page { size: "+this.page_format_mm[0]+"mm "+this.page_format_mm[1]+"mm; margin: 0 !important; } .hidden-print { display: none !important; } }";
@@ -464,8 +492,8 @@ export default {
       print_body.style.margin = "0";
       print_body.style.padding = "0";
       print_body.style.background = "white";
-      print_body.style.font = window.getComputedStyle(this.$refs.editor).font;
-      print_body.className = this.$refs.editor.className;
+      print_body.style.font = window.getComputedStyle(this.$refs.content).font;
+      print_body.className = this.$refs.content.className;
 
       // move each page to the print body
       for(const [page_idx, page] of this.pages.entries()){

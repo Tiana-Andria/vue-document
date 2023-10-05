@@ -5,22 +5,28 @@
     <vue-file-toolbar-menu :content="menu" class="bar" />
 
     <!-- Document editor -->
-    <vue-document-editor class="editor" ref="editor"
+    <vue-document-editor 
+      class="editor" 
+      ref="editor"
       v-model:content="content"
       :overlay="overlay"
       :zoom="zoom"
       :page_format_mm="page_format_mm"
       :page_margins="page_margins"
-      :display="display" />
-
+      :display="display"  
+      @keyup="envoyerDonneesWS"
+      @cursor-move="updateUserCursor"
+    />
+      
   </div>
 </template>
 
 <script>
 import VueFileToolbarMenu from 'vue-file-toolbar-menu';
-import VueDocumentEditor from '../DocumentEditor/DocumentEditor.vue'; // set from 'vue-document-editor' in your application
-import InvoiceTemplate from './InvoiceTemplate.ce.vue';
-import { markRaw } from 'vue';
+import VueDocumentEditor from '../DocumentEditor/DocumentEditor.vue';
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
 
 export default {
   components: { VueDocumentEditor, VueFileToolbarMenu },
@@ -28,32 +34,34 @@ export default {
   data () {
     return {
       // This is where the pages content is stored and synced
-      content: [
-        // Every item below produce a page break
-        '<h1>Hello world!</h1><p>This is a rich-text editor built on top of <span contenteditable="false"><a href="https://vuejs.org/" target="_blank">Vue.js</a></span> using the native <span contenteditable="false"><a href="https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/Editable_content" target="_blank"><i>contenteditable</i></a></span> browser implementation and some JavaScript trickery to spread content over paper-sized pages.</p><p>Built-in functionality includes:</p><ul><li>Using Vue.js components as interactive page templates (see next page)</li><li>Word-by-word page splitting with forward and backward propagation (<u>still experimental</u>)</li><li>Native Print compatible</li><li>Dynamic document format and margins in millimeters</li><li>Custom page overlays (headers, footers, page numbers)</li><li>Page breaks</li><li>Smart zoom and page display modes</li><li>Computes text style at caret position</li></ul><p>This library may be useful if you design an application that generate documents and you would let the user to modify them slightly before printing / saving, but with limited / interactive possibilities. It does not intend to replace a proper document editor with full functionality.<br>Make sure this project is suitable to your needs before using it.</p><p>This demo adds:</p><ul><li>The top bar (<span contenteditable="false"><a href="https://github.com/motla/vue-file-toolbar-menu" target="_blank">vue-file-toolbar-menu</a></span> component) and the functions associated with it</li><li>Rewritten history stack (undo/redo) compatible with native commands</li><li>Pinch and trackpad zooming</li></ul><p>Check out the <span contenteditable="false"><a href="https://github.com/motla/vue-document-editor/blob/master/src/Demo/Demo.vue" target="_blank">Demo.vue</a></span> file if you need to add these functionalities to your application.</p><p>The link below is an example of non-editable block set with <code>contenteditable="false"</code>:</p><p style="text-align:center" contenteditable="false"><a href="https://github.com/motla/vue-document-editor">View docs on Github</a>, you can\'t edit me.</p><p>But you can still edit this.</p>',
-        { template: markRaw(InvoiceTemplate), props: { invoice_number: "AB38052985" } },
-        '<br><br><h1>Headers / footers example</h1><br>Page numbers have been added on every page of this document.<br>Header and footer overlays will be added from page 3 to all subsequent ones.<br><br>Check out the <code>overlay</code> method of the <span contenteditable="false"><a href="https://github.com/motla/vue-document-editor/blob/master/src/Demo/Demo.vue" target="_blank">Demo.vue</a></span> file to customize this.',
-        '<h1>«</h1><div style="width:80%; text-align:justify; margin:auto"><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum diam nisl sit amet erat. Duis semper. Duis arcu massa, scelerisque vitae, consequat in, pretium a, enim. Pellentesque congue. Ut in risus volutpat libero pharetra tempor. Cras vestibulum bibendum augue. Praesent egestas leo in pede. Praesent blandit odio eu enim. Pellentesque sed dui ut augue blandit sodales. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Aliquam nibh. Mauris ac mauris sed pede pellentesque fermentum. Maecenas adipiscing ante non diam sodales hendrerit.</p><p>Ut velit mauris, egestas sed, gravida nec, ornare ut, mi. Aenean ut orci vel massa suscipit pulvinar. Nulla sollicitudin. Fusce varius, ligula non tempus aliquam, nunc turpis ullamcorper nibh, in tempus sapien eros vitae ligula. Pellentesque rhoncus nunc et augue. Integer id felis. Curabitur aliquet pellentesque diam. Integer quis metus vitae elit lobortis egestas. Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi vel erat non mauris convallis vehicula. Nulla et sapien. Integer tortor tellus, aliquam faucibus, convallis id, congue eu, quam. Mauris ullamcorper felis vitae erat. Proin feugiat, augue non elementum posuere, metus purus iaculis lectus, et tristique ligula justo vitae magna.</p><p>Aliquam convallis sollicitudin purus. Praesent aliquam, enim at fermentum mollis, ligula massa adipiscing nisl, ac euismod nibh nisl eu lectus. Fusce vulputate sem at sapien. Vivamus leo. Aliquam euismod libero eu enim. Nulla nec felis sed leo placerat imperdiet. Aenean suscipit nulla in justo. Suspendisse cursus rutrum augue. Nulla tincidunt tincidunt mi. Curabitur iaculis, lorem vel rhoncus faucibus, felis magna fermentum augue, et ultricies lacus lorem varius purus. Curabitur eu amet.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum diam nisl sit amet erat. Duis semper. Duis arcu massa, scelerisque vitae, consequat in, pretium a, enim. Pellentesque congue. Ut in risus volutpat libero pharetra tempor. Cras vestibulum bibendum augue. Praesent egestas leo in pede. Praesent blandit odio eu enim. Pellentesque sed dui ut augue blandit sodales. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Aliquam nibh. Mauris ac mauris sed pede pellentesque fermentum. Maecenas adipiscing ante non diam sodales hendrerit.</p><p>Ut velit mauris, egestas sed, gravida nec, ornare ut, mi. Aenean ut orci vel massa suscipit pulvinar. Nulla sollicitudin. Fusce varius, ligula non tempus aliquam, nunc turpis ullamcorper nibh, in tempus sapien eros vitae ligula. Pellentesque rhoncus nunc et augue. Integer id felis. Curabitur aliquet pellentesque diam. Integer quis metus vitae elit lobortis egestas. Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi vel erat non mauris convallis vehicula. Nulla et sapien. Integer tortor tellus, aliquam faucibus, convallis id, congue eu, quam. Mauris ullamcorper felis vitae erat. Proin feugiat, augue non elementum posuere, metus purus iaculis lectus, et tristique ligula justo vitae magna.</p><p>Aliquam convallis sollicitudin purus. Praesent aliquam, enim at fermentum mollis, ligula massa adipiscing nisl, ac euismod nibh nisl eu lectus. Fusce vulputate sem at sapien. Vivamus leo. Aliquam euismod libero eu enim. Nulla nec felis sed leo placerat imperdiet. Aenean suscipit nulla in justo. Suspendisse cursus rutrum augue. Nulla tincidunt tincidunt mi. Curabitur iaculis, lorem vel rhoncus faucibus, felis magna fermentum augue, et ultricies lacus lorem varius purus. Curabitur eu amet.</p></div><h1 style="text-align:right">»</h1>',
-        '<h3 style="text-align:center">--- This is a page break. ---</h3>'
-      ],
+      content: ["<font size='6px'>fdddd</font>"],
       zoom: 0.8,
       zoom_min: 0.10,
       zoom_max: 5.0,
       page_format_mm: [210, 297],
       page_margins: "10mm 15mm",
-      display: "grid", // ["grid", "vertical", "horizontal"]
+      display: "vertical", // ["grid", "vertical", "horizontal"]
       mounted: false, // will be true after this component is mounted
       undo_count: -1, // contains the number of times user can undo (= current position in content_history)
-      content_history: [] // contains the content states for undo/redo operations
+      content_history: [], // contains the content states for undo/redo operations
+      socket: null,
+      page2Content: [],
+      userCursors: [],
+      cursorPosition : null,
+      ydoc: null,
+      ycontent: null,
+      wsProvider: null,
     }
   },
 
   created () {
+    this.initWebSocket();
     // Initialize gesture flags
     let start_zoom_gesture = false;
     let start_dist_touch = false;
     let start_zoom_touch = false;
 
+    
     // Manage ctrl+scroll zoom (or trackpad pinch)
     window.addEventListener("wheel", (e) => {
       if(e.ctrlKey){
@@ -304,6 +312,67 @@ export default {
   },
 
   methods: {
+    // showCursor(event) {
+    //   const cursor = useCollaborationCursor(this.$refs.editor);
+    //   cursor.draw();
+    // },
+
+    updateUserCursor(cursorInfo) {
+      this.cursorPosition = cursorInfo  
+    },
+    
+    initWebSocket() {
+      this.socket = new WebSocket("ws://localhost:9099");
+      const that = this
+      this.socket.onopen = () => {
+        console.log('WebSocket ouverte');
+      };
+
+      this.socket.onmessage = (event) => {
+      
+        try {
+          const data = JSON.parse(event.data)
+          that.recevoirMessageWS(data)
+        }
+        catch(e)
+        {
+          console.log("Erreur ", e);
+        }
+   
+      }
+    },
+
+    recevoirMessageWS(donnees) {
+      try {
+        if (!this.ydoc) {
+          this.ydoc = new Y.Doc();
+          this.ycontent = this.ydoc.getArray('content');
+          this.wsProvider = new WebsocketProvider('ws://localhost:9099', 'your-document-name', this.ydoc);
+        }
+
+        // Insert received data into the Y.js document
+        this.ycontent.insert(0, [donnees]);
+
+        this.ycontent.observe((event) => {
+          // Update your local content from the Y.js document
+          this.content = this.ycontent.toArray();
+        });
+      } catch (error) {
+        // Log any errors that occur during data processing
+        console.error('Error in recevoirMessageWS:', error);
+      }
+    },
+
+    envoyerDonneesWS(event) {
+     
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        const donnees = JSON.stringify(this.content);
+        this.socket.send(donnees);
+      } else {
+        console.error('La WebSocket n\'est pas prête pour l\'envoi de données.');
+      }
+    },
+
     // Page overlays (headers, footers, page numbers)
     overlay (page, total) {
       // Add page numbers on each page
@@ -427,4 +496,52 @@ body {
     --bar-button-active-bkg: #e6f4ea;
     --bar-button-open-bkg: #e6f4ea;
   }
+  .ooo{
+    background-color: black;
+  }
+</style>
+
+<style lang="scss">
+/* Basic editor styles */
+.tiptap {
+  > * + * {
+    margin-top: 0.75em;
+  }
+}
+
+/* Placeholder (at the top) */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Give a remote user a caret */
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid #0D0D0D;
+  border-right: 1px solid #0D0D0D;
+  word-break: normal;
+  pointer-events: none;
+}
+
+/* Render the username above the caret */
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+  color: #0D0D0D;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+}
 </style>
