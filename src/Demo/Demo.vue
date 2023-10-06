@@ -14,7 +14,6 @@
       :page_format_mm="page_format_mm"
       :page_margins="page_margins"
       :display="display"  
-      @keyup="envoyerDonneesWS"
       @cursor-move="updateUserCursor"
     />
       
@@ -34,7 +33,7 @@ export default {
   data () {
     return {
       // This is where the pages content is stored and synced
-      content: ["<font size='6px'>fdddd</font>"],
+      content: [],
       zoom: 0.8,
       zoom_min: 0.10,
       zoom_max: 5.0,
@@ -55,7 +54,7 @@ export default {
   },
 
   created () {
-    this.initWebSocket();
+    this.initYjs();
     // Initialize gesture flags
     let start_zoom_gesture = false;
     let start_dist_touch = false;
@@ -321,25 +320,24 @@ export default {
       this.cursorPosition = cursorInfo  
     },
     
-    initWebSocket() {
-      this.socket = new WebSocket("ws://localhost:9099");
-      const that = this
-      this.socket.onopen = () => {
-        console.log('WebSocket ouverte');
-      };
+    initYjs() {
+      // Initialize Y.Doc
+      this.ydoc = new Y.Doc();
 
-      this.socket.onmessage = (event) => {
-      
-        try {
-          const data = JSON.parse(event.data)
-          that.recevoirMessageWS(data)
-        }
-        catch(e)
-        {
-          console.log("Erreur ", e);
-        }
-   
-      }
+      // Initialize the content array in the Y.Doc
+      this.ycontent = this.ydoc.getArray('content');
+
+      // Use y-websocket to sync the document
+      this.wsProvider = new WebsocketProvider('ws://localhost:9097', 'your-document-name', this.ydoc);
+
+      // Synchronize local content with Y.Doc
+      this.ycontent.observe(() => {
+        this._mute_next_content_watcher = true;  // to avoid infinite loops or unnecessary updates
+        this.content = this.ycontent.toArray();
+      });
+
+      // Example: Initially populating Y.js array with local content if needed.
+      this.ycontent.insert(0, this.content);
     },
 
     recevoirMessageWS(donnees) {
@@ -352,6 +350,8 @@ export default {
 
         // Insert received data into the Y.js document
         this.ycontent.insert(0, [donnees]);
+        console.log("ycontent ", this.ycontent.toArray());
+        console.log("this.content ", this.content);
 
         this.ycontent.observe((event) => {
           // Update your local content from the Y.js document
@@ -363,12 +363,22 @@ export default {
       }
     },
 
-    envoyerDonneesWS(event) {
+    async envoyerDonneesWS(new_content) {
      
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        const donnees = JSON.stringify(this.content);
-        this.socket.send(donnees);
-      } else {
+        try {
+          const jsonData = {
+            elements: new_content
+          }
+          const jsonString = JSON.stringify(jsonData);
+          console.log("jsonString ", jsonString);
+          this.socket.send(jsonString);
+        } 
+        catch (error) {
+          console.error('Erreur de format JSON :', error);
+        }
+      } 
+      else {
         console.error('La WebSocket n\'est pas prête pour l\'envoi de données.');
       }
     },
@@ -439,6 +449,11 @@ export default {
         if(!this._mute_next_content_watcher) { // only update the stack when content is changed by user input, not undo/redo commands
           this.content_history[++this.undo_count] = new_content;
           this.content_history.length = this.undo_count + 1; // remove all redo items
+          
+          if (this.ycontent) {
+            this.ycontent.delete(0, this.ycontent.length);
+            this.ycontent.insert(0, new_content);
+          }
         }
         this._mute_next_content_watcher = false;
       }
